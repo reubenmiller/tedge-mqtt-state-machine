@@ -1,3 +1,4 @@
+mod configuration;
 use tedge_actors::Runtime;
 use tedge_mqtt_ext::{MqttActorBuilder, MqttConfig};
 use tedge_signal_ext::SignalActor;

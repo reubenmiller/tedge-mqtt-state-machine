@@ -54,9 +54,9 @@ Benefits:
 
 - A ready-to-use implementation of a workflow can be adapted by a user.
   - New state can be added (as long as an external sub-system is handling this state).
-  - Default behavior can be overrided (by providing an external script or delegating the step to an external participant).
+  - Default behavior can be overridden (by providing an external script or delegating the step to an external participant).
 - This fully decouples any cloud-specific support from the core operation workflow.
-  - A cloud-specific mapper is only responsible of message translation.
+  - A cloud-specific mapper is only responsible for message translation.
   - On request from the cloud, the mapper has to create the initial state of the operation.
   - While the operation is making progress, the mapper can report this progress to the cloud end-point.
   - The mapper has to watch when a terminal state is reach to report this event accordingly and close the operation.
@@ -72,6 +72,10 @@ request = "update"
 
 [init]
 owner = "tedge"
+next = ["scheduled]"
+
+[scheduled]
+owner = "tedge"
 next = ["downloading]"
 
 [downloading]
@@ -84,22 +88,21 @@ next = ["installing"]
 
 [installing]
 owner = "tedge"
-next = ["successfull", "failed"]
+next = ["successful", "failed"]
 
 [successful]
 owner = "tedge"
-next = ["term"]
+next = []
 
 [failed]
-owner = "tedge"
-next = ["term"]
-
-[term]
 owner = "tedge"
 next = []
 ```
 
-A user who wants to control when an operation update can be launched.
+A user who wants to control when an operation update can be launched and applied can:
+- use his own implementation of a service to schedule the operations,
+- override the default behavior to check the download,
+- add new steps, here to use a custom installation script for corner cases.
 
 ```
 type = "configuration"
@@ -111,8 +114,7 @@ owner = "external"
 next = ["scheduled, "failed"]"
 
 [scheduled]
-# An external daemon timely triggers the requests.
-owner = "external"
+owner = "tedge"
 next = ["downloading]"
 
 [downloading]
@@ -123,23 +125,23 @@ next = ["downloaded", "failed"]
 # The default behavior of thin-edge is overrided.
 owner = "tedge"
 script = "check.sh"
-next = ["installing"]
+next = ["installing", "installing-custom", "failed"]
 
 [installing]
-# The default behavior of thin-edge is overrided.
+owner = "tedge"
+next = ["successful", "failed"]
+
+[installing-custom]
+# An alternative path is added.
 owner = "tedge"
 script = "install.sh"
-next = ["successfull", "failed"]
+next = ["successful", "failed"]
 
 [successful]
 owner = "tedge"
-next = ["term"]
+next = []
 
 [failed]
-owner = "tedge"
-next = ["term"]
-
-[term]
 owner = "tedge"
 next = []
 ```
