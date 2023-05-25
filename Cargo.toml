@@ -1,0 +1,17 @@
+[package]
+name = "tedge-mqtt-state-machine"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = { version = "1.0" }
+async-trait = "0.1"
+env_logger = "0.10"
+log = "0.4"
+tedge_actors = { git = "https://github.com/thin-edge/thin-edge.io" }
+tedge_mqtt_ext = { git = "https://github.com/thin-edge/thin-edge.io" }
+tedge_signal_ext = { git = "https://github.com/thin-edge/thin-edge.io" }
+tokio = { version = "1.23", features = ["rt", "rt-multi-thread"] }
+toml = { version = "0.7" }
