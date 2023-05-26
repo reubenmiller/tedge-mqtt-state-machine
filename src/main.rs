@@ -1,7 +1,10 @@
-mod configuration;
+pub mod configuration;
+pub mod operations_sm;
+
 use tedge_actors::Runtime;
 use tedge_mqtt_ext::{MqttActorBuilder, MqttConfig};
 use tedge_signal_ext::SignalActor;
+use crate::operations_sm::builder::OperationsActorBuilder;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -11,10 +14,12 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let mut runtime = Runtime::try_new(None).await?;
     let signal_actor = SignalActor::builder(&runtime.get_handle());
-    let mqtt_actor = MqttActorBuilder::new(mqtt_config);
+    let mut mqtt_actor = MqttActorBuilder::new(mqtt_config);
+    let operations_actor = OperationsActorBuilder::new(&mut mqtt_actor);
 
     runtime.spawn(signal_actor).await?;
     runtime.spawn(mqtt_actor).await?;
+    runtime.spawn(operations_actor).await?;
     runtime.run_to_completion().await?;
     Ok(())
 }
