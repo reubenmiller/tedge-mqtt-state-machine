@@ -1,16 +1,25 @@
+use crate::operations_sm::actor::OperationsActor;
+use crate::operations_sm::config::OperationWorkflow;
+use crate::operations_sm::messages::{OperationInput, OperationPluginMessage};
+use log::error;
 use std::convert::Infallible;
 use tedge_actors::{
     adapt, Builder, DynSender, LoggingReceiver, Message, RuntimeRequest, RuntimeRequestSink,
     ServiceProvider,
 };
-
-use crate::operations_sm::actor::OperationsActor;
-use crate::operations_sm::messages::OperationInput;
 use tedge_mqtt_ext::{MqttMessage, TopicFilter};
 
 pub struct OperationsActorBuilder {
     input_receiver: LoggingReceiverBuilder<OperationInput>,
     mqtt_sender: DynSender<MqttMessage>,
+
+    /// All the operation workflow definitions,
+    /// possibly with a channel to the actor operation plugin that implement the workflow
+    workflows: Vec<(
+        TopicFilter,
+        OperationWorkflow,
+        Option<DynSender<OperationPluginMessage>>,
+    )>,
 }
 
 impl OperationsActorBuilder {
@@ -18,8 +27,42 @@ impl OperationsActorBuilder {
         let input_receiver = LoggingReceiverBuilder::new(OperationsActor::name());
         let input_sender = adapt(&input_receiver.get_input_sender());
         let mqtt_sender = mqtt.connect_consumer(OperationsActor::subscriptions(), input_sender);
+        let workflows = Vec::new();
 
-        OperationsActorBuilder { input_receiver, mqtt_sender }
+        OperationsActorBuilder {
+            input_receiver,
+            mqtt_sender,
+            workflows,
+        }
+    }
+
+    pub fn register_operation_plugin(
+        &mut self,
+        sender: DynSender<OperationPluginMessage>,
+        workflow: OperationWorkflow,
+    ) {
+        let filter = &workflow.filter.clone();
+        if let Err(err) = self.register_workflow(workflow, Some(sender)) {
+            error!("Fail to register the plugin for {:?}: {err}", filter);
+        }
+    }
+
+    pub fn register_custom_workflow(&mut self, workflow: OperationWorkflow) {
+        let filter = &workflow.filter.clone();
+        if let Err(err) = self.register_workflow(workflow, None) {
+            error!("Fail to register the workflow for {:?}: {err}", filter);
+        }
+    }
+
+    pub fn register_workflow(
+        &mut self,
+        workflow: OperationWorkflow,
+        sender: Option<DynSender<OperationPluginMessage>>,
+    ) -> Result<(), String> {
+        let filter = &workflow.filter;
+        let topic = filter.try_into()?;
+        self.workflows.push((topic, workflow, sender));
+        Ok(())
     }
 }
 
@@ -33,7 +76,11 @@ impl Builder<OperationsActor> for OperationsActorBuilder {
     type Error = Infallible;
 
     fn try_build(self) -> Result<OperationsActor, Self::Error> {
-        Ok(OperationsActor::new(self.input_receiver.build(), self.mqtt_sender))
+        Ok(OperationsActor::new(
+            self.input_receiver.build(),
+            self.mqtt_sender,
+            self.workflows,
+        ))
     }
 }
 

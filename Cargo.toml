@@ -10,6 +10,7 @@ anyhow = { version = "1.0" }
 async-trait = "0.1"
 env_logger = "0.10"
 log = "0.4"
+scanf = "1.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tedge_actors = { git = "https://github.com/thin-edge/thin-edge.io" }

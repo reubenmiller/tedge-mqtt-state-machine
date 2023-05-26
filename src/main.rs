@@ -1,10 +1,10 @@
 pub mod configuration;
 pub mod operations_sm;
 
+use crate::operations_sm::builder::OperationsActorBuilder;
 use tedge_actors::Runtime;
 use tedge_mqtt_ext::{MqttActorBuilder, MqttConfig};
 use tedge_signal_ext::SignalActor;
-use crate::operations_sm::builder::OperationsActorBuilder;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
