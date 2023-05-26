@@ -1,6 +1,6 @@
 # tedge MQTT state machines
 
-Exploring the idea of providing MQTT hooks into the thin-edge operations workflow.
+Exploring the idea of providing MQTT hooks into the thin-edge operation workflows.
 
 ## Why?
 
@@ -50,7 +50,7 @@ The core idea is to use MQTT retained messages to capture the current state of e
         - launch a script that will perform a step and tell thin-edge what is the new state,
         - let some external participant do what is required.
 
-Benefits:
+## Benefits
 
 - A ready-to-use implementation of a workflow can be adapted by a user.
   - New state can be added (as long as an external sub-system is handling this state).
@@ -70,6 +70,10 @@ The default workflow provided by thin-edge support for configuration management 
 type = "configuration"
 request = "update"
 
+# The default behavior is to immediately schedule the new request.
+# Having an init state with an automatic transition to an other step is done in order to:
+# - let the users plug their own behavior to check, prepare or adapt the request,
+# - while keeping unchanged the sub-systems that create these requests (i.e. the mappers).
 [init]
 owner = "tedge"
 next = ["scheduled]"
@@ -82,6 +86,10 @@ next = ["downloading]"
 owner = "tedge"
 next = ["downloaded", "failed"]
 
+# The default behavior is to immediately proceed with installation.
+# Having a state with an automatic transition to an other step is done in order to:
+# - let the users plug their own behavior to check, prepare or adapt the installation,
+# - while keeping unchanged the sub-system that leads to this state (i.e. the downloader).
 [downloaded]
 owner = "tedge"
 next = ["installing"]
