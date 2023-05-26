@@ -76,11 +76,11 @@ request = "update"
 # - while keeping unchanged the sub-systems that create these requests (i.e. the mappers).
 [init]
 owner = "tedge"
-next = ["scheduled]"
+next = ["scheduled"]
 
 [scheduled]
 owner = "tedge"
-next = ["downloading]"
+next = ["downloading"]
 
 [downloading]
 owner = "tedge"

@@ -6,7 +6,7 @@ use tedge_actors::futures::StreamExt;
 use tedge_actors::{Actor, MessageReceiver, RuntimeError, Sender, SimpleMessageBox};
 use tokio::task::JoinHandle;
 
-/// Using fake demo for this POC.
+/// Using fake download for this POC.
 struct Download {
     id: String,
     request: ConfigUpdateRequest,
@@ -37,7 +37,7 @@ pub struct ConfigManager {
 #[async_trait]
 impl Actor for ConfigManager {
     fn name(&self) -> &str {
-        "ConfigManager"
+        ConfigManager::name()
     }
 
     async fn run(&mut self) -> Result<(), RuntimeError> {
@@ -70,6 +70,10 @@ impl Actor for ConfigManager {
                             // This event is only useful for the other participants
                             None
                         }
+                        ConfigUpdateRequestState::InvalidState { id, error } => {
+                            log::error!("Can not process invalid state {id} : {error}");
+                            None
+                        }
                     }
                 }
                 Some(download) = self.downloads.next() => {
@@ -88,6 +92,10 @@ impl Actor for ConfigManager {
 }
 
 impl ConfigManager {
+    pub fn name() -> &'static str {
+        "ConfigurationManager"
+    }
+
     pub fn new(
         message_box: SimpleMessageBox<ConfigUpdateRequestState, ConfigUpdateRequestState>,
     ) -> Self {

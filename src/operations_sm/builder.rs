@@ -66,6 +66,19 @@ impl OperationsActorBuilder {
     }
 }
 
+impl ServiceProvider<OperationPluginMessage, OperationPluginMessage, OperationWorkflow>
+    for OperationsActorBuilder
+{
+    fn connect_consumer(
+        &mut self,
+        config: OperationWorkflow,
+        response_sender: DynSender<OperationPluginMessage>,
+    ) -> DynSender<OperationPluginMessage> {
+        self.register_operation_plugin(response_sender, config);
+        adapt(&self.input_receiver.get_input_sender())
+    }
+}
+
 impl RuntimeRequestSink for OperationsActorBuilder {
     fn get_signal_sender(&self) -> DynSender<RuntimeRequest> {
         self.input_receiver.get_signal_sender()

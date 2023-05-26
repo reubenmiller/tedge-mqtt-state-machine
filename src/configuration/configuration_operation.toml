@@ -1,0 +1,30 @@
+operation = "configuration"
+request = "update"
+
+[init]
+owner = "tedge"
+next = ["scheduled"]
+
+[scheduled]
+owner = "tedge"
+next = ["downloading"]
+
+[downloading]
+owner = "tedge"
+next = ["downloaded", "failed"]
+
+[downloaded]
+owner = "tedge"
+next = ["installing"]
+
+[installing]
+owner = "tedge"
+next = ["successful", "failed"]
+
+[successful]
+owner = "tedge"
+next = []
+
+[failed]
+owner = "tedge"
+next = []

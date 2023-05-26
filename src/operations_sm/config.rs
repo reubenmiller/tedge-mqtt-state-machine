@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tedge_mqtt_ext::{Topic, TopicFilter};
 
@@ -7,7 +8,7 @@ use tedge_mqtt_ext::{Topic, TopicFilter};
 /// and the MQTT topic on which the operation instance state are published.
 ///
 /// `tedge/operations/{subsystem}/{operation}/{request}/{instance}`
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct OperationKey {
     /// The subsystem to which the operation applies:
     /// - the main device,
@@ -37,19 +38,27 @@ impl TryFrom<&Topic> for OperationKey {
     type Error = String;
 
     fn try_from(topic: &Topic) -> Result<Self, Self::Error> {
+        OperationKey::try_from(&topic.name)
+    }
+}
+
+impl TryFrom<&String> for OperationKey {
+    type Error = String;
+
+    fn try_from(topic: &String) -> Result<Self, Self::Error> {
         let mut subsystem = String::new();
         let mut operation = String::new();
         let mut request = String::new();
         let mut instance = String::new();
         scanf::sscanf!(
-            &topic.name,
+            &topic,
             "tedge/operations/{}/{}/{}/{}",
             subsystem,
             operation,
             request,
             instance
         )
-        .map_err(|_| format!("Not an operation topic: {}", topic.name))?;
+        .map_err(|_| format!("Not an operation topic: {}", topic))?;
         Ok(OperationKey {
             subsystem,
             operation,
@@ -63,11 +72,17 @@ impl TryFrom<&OperationKey> for Topic {
     type Error = String;
 
     fn try_from(value: &OperationKey) -> Result<Self, Self::Error> {
-        let topic = format!(
+        let topic: String = value.into();
+        Topic::new(&topic).map_err(|_| format!("Not a valid topic: {topic}"))
+    }
+}
+
+impl From<&OperationKey> for String {
+    fn from(value: &OperationKey) -> Self {
+        format!(
             "tedge/operations/{}/{}/{}/{}",
             value.subsystem, value.operation, value.operation, value.instance,
-        );
-        Topic::new(&topic).map_err(|_| format!("Not a valid topic: {topic}"))
+        )
     }
 }
 
@@ -84,7 +99,7 @@ impl TryFrom<&OperationKey> for Topic {
 ///
 /// A workflow definition that overrides the configuration update requests on the main-device
 /// is associated to the filter `tedge/operations/main-device/configuration/update/+`
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct OperationFilter {
     /// The systems to which this filter applies
     ///
@@ -118,19 +133,24 @@ impl TryFrom<&OperationFilter> for TopicFilter {
 }
 
 /// An OperationWorkflow defines the state machine that rules an operation
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct OperationWorkflow {
     /// The set of operations to which these rules applies
+    #[serde(flatten)]
     pub filter: OperationFilter,
 
     /// The states of the state machine
+    #[serde(flatten)]
     pub states: HashMap<String, OperationState>,
 }
 
-/// What has to be done by thin-edge when an operation is in this state.
+/// What has to be done by thin-edge when an operation is in this state
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OperationState {
     /// The workflow participant that is responsible on moving forward the operation when in that state
     /// - tedge
     /// - external
+    #[serde(default = "tedge_owner")]
     pub owner: String,
 
     /// Possibly a script to handle the operation when in that state
@@ -138,4 +158,18 @@ pub struct OperationState {
 
     /// Transitions
     pub next: Vec<String>,
+}
+
+impl Default for OperationState {
+    fn default() -> Self {
+        OperationState {
+            owner: tedge_owner(),
+            script: None,
+            next: vec![],
+        }
+    }
+}
+
+fn tedge_owner() -> String {
+    "tedge".to_string()
 }
