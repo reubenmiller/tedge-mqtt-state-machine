@@ -18,6 +18,15 @@ async fn main() -> Result<(), anyhow::Error> {
     let mut mqtt_actor = MqttActorBuilder::new(mqtt_config);
     let mut operations_actor = OperationsActorBuilder::new(&mut mqtt_actor);
 
+    for entry in std::fs::read_dir("./operations")? {
+        if let Ok(entry) = entry {
+            if entry.path().to_str().unwrap().ends_with(".toml") {
+                let workflow = toml::from_str(std::str::from_utf8(&std::fs::read(entry.path())?)?)?;
+                operations_actor.register_custom_workflow(workflow);
+            }
+        }
+    }
+
     let config_manager = ConfigManagerBuilder::new(&mut operations_actor);
 
     runtime.spawn(signal_actor).await?;
