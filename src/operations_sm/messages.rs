@@ -11,6 +11,21 @@ pub struct OperationPluginMessage {
     pub json: Value,
 }
 
+impl OperationPluginMessage {
+    pub fn new(operation: OperationKey, status: String, mut json: Value) -> Self {
+        // The status is published along the json payload
+        let json_status = status.clone();
+        json.as_object_mut()
+            .map(|o| o.insert("status".to_string(), json_status.into()));
+
+        OperationPluginMessage {
+            operation,
+            status,
+            json,
+        }
+    }
+}
+
 impl TryFrom<&MqttMessage> for OperationPluginMessage {
     type Error = String;
 

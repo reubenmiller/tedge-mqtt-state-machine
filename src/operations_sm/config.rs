@@ -81,7 +81,7 @@ impl From<&OperationKey> for String {
     fn from(value: &OperationKey) -> Self {
         format!(
             "tedge/operations/{}/{}/{}/{}",
-            value.subsystem, value.operation, value.operation, value.instance,
+            value.subsystem, value.operation, value.request, value.instance,
         )
     }
 }
@@ -125,7 +125,7 @@ impl TryFrom<&OperationFilter> for TopicFilter {
             "tedge/operations/{}/{}/{}/+",
             value.subsystem.as_ref().map(|s| s.as_ref()).unwrap_or("+"),
             value.operation.as_ref().map(|s| s.as_ref()).unwrap_or("+"),
-            value.operation.as_ref().map(|s| s.as_ref()).unwrap_or("+")
+            value.request.as_ref().map(|s| s.as_ref()).unwrap_or("+")
         );
         TopicFilter::new(&topic_filter)
             .map_err(|_| format!("Not a valid topic filter: {topic_filter}"))
