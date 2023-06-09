@@ -1,0 +1,31 @@
+operation = "configuration"
+request = "update"
+
+[init]
+owner = "external"
+next = ["scheduled"]
+
+[scheduled]
+owner = "tedge"
+next = ["downloading"]
+
+[downloading]
+owner = "tedge"
+next = ["downloaded", "failed"]
+
+[downloaded]
+owner = "tedge"
+script = "operations/pre-install-check.sh"
+next = ["installing"]
+
+[installing]
+owner = "tedge"
+next = ["successful", "failed"]
+
+[successful]
+owner = "tedge"
+next = []
+
+[failed]
+owner = "tedge"
+next = []

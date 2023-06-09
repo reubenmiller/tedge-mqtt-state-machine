@@ -153,3 +153,20 @@ next = []
 owner = "tedge"
 next = []
 ```
+
+
+When the owner of a step is not `tedge` then `tedge-mqtt-state-machine` do nothing and
+simply awaits that an external system (a daemon or a child device) handles the transition.
+
+When the owner is `tedge` and a `script` is given,
+this script is launched to handle the transition
+and the std output of this script is used to define the new state.
+This std output is expected to be in JSON and to provide at least a "status".
+
+When the owner is `tedge` and no `script` is given,
+then the step is delegated to an internal workflow.
+
+TODO:
+- [ ] Replace the fake configuration manager workflow by a real one that actually download and install the config.
+- [ ] Handle the error of an internal workflow. Currently, these errors are simply logged. They must also fail the state machine.
+- [ ] Use inotify to dynamically load new user-defined workflow.

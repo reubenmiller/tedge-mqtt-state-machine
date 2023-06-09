@@ -3,15 +3,17 @@ use crate::operations_sm::config::OperationWorkflow;
 use crate::operations_sm::messages::{OperationInput, OperationPluginMessage};
 use log::error;
 use std::convert::Infallible;
+use std::process::Output;
 use tedge_actors::{
-    adapt, Builder, DynSender, LoggingReceiver, Message, RuntimeRequest, RuntimeRequestSink,
-    ServiceProvider,
+    adapt, Builder, ClientMessageBox, DynSender, LoggingReceiver, Message, NoConfig,
+    RuntimeRequest, RuntimeRequestSink, ServiceProvider,
 };
 use tedge_mqtt_ext::{MqttMessage, TopicFilter};
 
 pub struct OperationsActorBuilder {
     input_receiver: LoggingReceiverBuilder<OperationInput>,
     mqtt_sender: DynSender<MqttMessage>,
+    script_runner: ClientMessageBox<Execute, std::io::Result<Output>>,
 
     /// All the operation workflow definitions,
     /// possibly with a channel to the actor operation plugin that implement the workflow
@@ -23,15 +25,20 @@ pub struct OperationsActorBuilder {
 }
 
 impl OperationsActorBuilder {
-    pub fn new(mqtt: &mut impl ServiceProvider<MqttMessage, MqttMessage, TopicFilter>) -> Self {
+    pub fn new(
+        mqtt: &mut impl ServiceProvider<MqttMessage, MqttMessage, TopicFilter>,
+        script_runner: &mut impl ServiceProvider<Execute, std::io::Result<Output>, NoConfig>,
+    ) -> Self {
         let input_receiver = LoggingReceiverBuilder::new(OperationsActor::name());
         let input_sender = adapt(&input_receiver.get_input_sender());
         let mqtt_sender = mqtt.connect_consumer(OperationsActor::subscriptions(), input_sender);
+        let script_runner = ClientMessageBox::new("Operation Script Runner", script_runner);
         let workflows = Vec::new();
 
         OperationsActorBuilder {
             input_receiver,
             mqtt_sender,
+            script_runner,
             workflows,
         }
     }
@@ -92,6 +99,7 @@ impl Builder<OperationsActor> for OperationsActorBuilder {
         Ok(OperationsActor::new(
             self.input_receiver.build(),
             self.mqtt_sender,
+            self.script_runner,
             self.workflows,
         ))
     }
@@ -102,6 +110,7 @@ impl Builder<OperationsActor> for OperationsActorBuilder {
 // ----------------
 
 use tedge_actors::futures::channel::mpsc;
+use tedge_script_ext::Execute;
 
 struct LoggingReceiverBuilder<M: Message> {
     receiver: LoggingReceiver<M>,

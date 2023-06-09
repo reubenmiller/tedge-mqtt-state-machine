@@ -13,8 +13,9 @@ log = "0.4"
 scanf = "1.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tedge_actors = { git = "https://github.com/thin-edge/thin-edge.io" }
-tedge_mqtt_ext = { git = "https://github.com/thin-edge/thin-edge.io" }
-tedge_signal_ext = { git = "https://github.com/thin-edge/thin-edge.io" }
+tedge_actors = { git = "https://github.com/didier-wenzek/thin-edge.io", branch = "fix/tedge-script-ext" }
+tedge_mqtt_ext = { git = "https://github.com/didier-wenzek/thin-edge.io", branch = "fix/tedge-script-ext" }
+tedge_script_ext = { git = "https://github.com/didier-wenzek/thin-edge.io", branch = "fix/tedge-script-ext" }
+tedge_signal_ext = { git = "https://github.com/didier-wenzek/thin-edge.io", branch = "fix/tedge-script-ext" }
 tokio = { version = "1.23", features = ["rt", "rt-multi-thread", "time"] }
 toml = { version = "0.7" }

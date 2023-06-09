@@ -1,16 +1,20 @@
 use crate::operations_sm::config::OperationWorkflow;
 use async_trait::async_trait;
 use log::{error, info};
+use std::process::Output;
 use tedge_actors::{
-    Actor, ChannelError, DynSender, LoggingReceiver, MessageReceiver, RuntimeError, Sender,
+    Actor, ChannelError, ClientMessageBox, DynSender, LoggingReceiver, MessageReceiver,
+    RuntimeError, Sender,
 };
 use tedge_mqtt_ext::{MqttMessage, Topic, TopicFilter};
+use tedge_script_ext::Execute;
 
 use crate::operations_sm::messages::{OperationInput, OperationPluginMessage};
 
 pub struct OperationsActor {
     input_receiver: LoggingReceiver<OperationInput>,
     mqtt_sender: DynSender<MqttMessage>,
+    script_runner: ClientMessageBox<Execute, std::io::Result<Output>>,
 
     /// All the operation workflow definitions,
     /// possibly with a channel to the actor operation plugin that implement the workflow
@@ -54,6 +58,7 @@ impl OperationsActor {
     pub fn new(
         input_receiver: LoggingReceiver<OperationInput>,
         mqtt_sender: DynSender<MqttMessage>,
+        script_runner: ClientMessageBox<Execute, std::io::Result<Output>>,
         workflows: Vec<(
             TopicFilter,
             OperationWorkflow,
@@ -63,6 +68,7 @@ impl OperationsActor {
         OperationsActor {
             input_receiver,
             mqtt_sender,
+            script_runner,
             workflows,
         }
     }
@@ -118,7 +124,13 @@ impl OperationsActor {
             }
             OperationAction::Script(script) => {
                 info!("Process operation event {}: using {script}", topic.name);
-                todo!();
+                if let Ok(command) = Execute::try_new(&script) {
+                    let output = self.script_runner.await_response(command).await?;
+                    let new_state = operation_state.update_with_script_output(script, output);
+                    self.publish_operation_plugin_event(new_state).await?;
+                } else {
+                    error!("Fail to parse the command line: {script}");
+                }
             }
         }
 
