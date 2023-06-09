@@ -169,4 +169,64 @@ then the step is delegated to an internal workflow.
 TODO:
 - [ ] Replace the fake configuration manager workflow by a real one that actually download and install the config.
 - [ ] Handle the error of an internal workflow. Currently, these errors are simply logged. They must also fail the state machine.
-- [ ] Use inotify to dynamically load new user-defined workflow.
+- [ ] Use inotify to dynamically reload new user-defined workflows.
+
+
+## Demo
+
+Run the service
+
+```shell
+$ cargo build
+$ RUST_LOG=debug target/debug/tedge-mqtt-state-machine
+```
+
+On start, this service loads all the workflows in `operations/*.toml`.
+An example is provided: `operations/updated_configuration_operation.toml`.
+
+On start, `tedge-mqtt-state-machine` subscribes to `tedge/operations/+/+/+/+`,
+watching for workflow state updates for operations keyed as
+`tedge/operations/{subsystem}/{operation}/{request}/{instance}`.
+
+To follow what's going on, the simpler is to subscribe to the same topic:
+
+```shell
+$ tedge mqtt sub 'tedge/operations/+/+/+/+'
+```
+
+Own can then trigger an operation (mimicking the cloud mapper).
+
+```shell
+$ tedge mqtt pub \
+    tedge/operations/main-device/configuration/update/123 \
+    '{ "status":"init", "target":"mosquito", "src_url":"https://there", "sha256":"okay" }'
+```
+
+This event is acknowledged by `tedge-mqtt-state-machine` but nothing is done.
+Indeed, in the workflow definition (`operations/updated_configuration_operation.toml`)
+the owner of the `init` state is *not* `tedge`.
+
+So one has to simulate this *external* system that is responsible for this state:
+
+```shell
+$ tedge mqtt pub \
+    tedge/operations/main-device/configuration/update/123 \
+    '{ "status":"scheduled", "target":"mosquito", "src_url":"https://there", "sha256":"okay" }'
+```
+
+As `tedge` is the owner of the `scheduled` state,
+`tedge-mqtt-state-machine` ensures the workflow is making progress as expected.
+
+Note that the action for the `downloaded` state is associated to the `operations/pre-install-check.sh` script.
+This script has to print on stdout the new state for the workflow:
+a JSON object with at least a `status` field.
+This status is used to move the workflow in a new state and to determine its owner.
+
+The workflow progress then to a final state (`successful` or `failed`).
+
+The assumption is then that the initiator of this operation (in practice the cloud mapper)
+clears the operation instance. This is done by sending a retained empty message on the associated topic.
+
+```shell
+$ tedge mqtt pub --retain tedge/operations/main-device/configuration/update/123 ''
+```
