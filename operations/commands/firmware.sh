@@ -2,31 +2,52 @@
 
 set -e
 
-log() {
-    echo "$*" >&2
-}
+log() { echo "$*" >&2; }
 
 log "Running command: $0 $*"
 
+SUBCOMMAND="$1"
+shift
+
 CURRENT_STATE='{}'
-if [ $# -gt 1 ]; then
-    CURRENT_STATE="$2"
+if [ $# -gt 0 ]; then
+    CURRENT_STATE="$1"
+    shift
 fi
 
+#
+# Helpers
+#
 next_state() {
     new_status="$1"
     current_status=$(echo "$CURRENT_STATE" | jq -r '.status')
 
-    EVENT_MESSAGE=$(printf '{"text":"[%s] state machine: [%s] ➜ [%s]"}' "firmware" "$current_status" "$new_status")
+    EVENT_MESSAGE=$(printf '{"text":"[%s] state machine: [%s] ➜ [%s]"}' "firmware" "$current_status" "${new_status:-done}")
     mosquitto_pub -t 'tedge/events/tedge_StateMachineTransition' -m "$EVENT_MESSAGE"
-    echo "$CURRENT_STATE" | jq '.status = "'"$new_status"'"' -c -M
+
+    OTHER_PROPS="{}"
+    if [ $# -gt 1 ]; then
+        OTHER_PROPS="$2"
+    fi
+    c8y template execute -n --template "
+        local state = $CURRENT_STATE;
+        state +
+        {status: '$new_status'} +
+        $OTHER_PROPS +
+        {i: std.get(state, 'i', 0) + 1}
+    " -o json -c -M
 }
 
 #
 # States
 #
 healthcheck() {
-    next_state "commit"
+    IS_HEALTHY=$(echo "$CURRENT_STATE" | jq -r '. | if has("healthy") then .healthy else true end')
+    if [ "$IS_HEALTHY" = "true" ]; then
+        next_state "commit"
+    else
+        next_state "rollback"
+    fi
 }
 
 verify() {
@@ -65,9 +86,9 @@ handle_reboot() {
 #
 # main
 #
-case "$1" in
-    verify)
-        verify
+case "$SUBCOMMAND" in
+    init)
+        next_state "scheduled"  "{startedAt: _.Now()}"
         ;;
 
     scheduled)
@@ -76,6 +97,14 @@ case "$1" in
 
     downloading)
         next_state "downloaded"
+        ;;
+
+    downloaded)
+        next_state "installing"
+        ;;
+
+    verify)
+        verify
         ;;
 
     installing)
@@ -99,11 +128,11 @@ case "$1" in
         ;;
 
     successful)
-        next_state "done"
+        next_state "" "{finishedAt: _.Now()}"
         ;;
 
     failed)
-        next_state "done"
+        next_state "" "{finishedAt: _.Now()}"
         ;;
 
     *)
@@ -113,4 +142,4 @@ case "$1" in
 
 esac
 
-sleep 2
+sleep 1

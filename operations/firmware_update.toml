@@ -2,7 +2,8 @@ operation = "firmware"
 request = "update"
 
 [init]
-owner = "external"
+owner = "tedge"
+script = "operations/commands/firmware.sh init"
 next = ["scheduled"]
 
 [scheduled]
@@ -47,10 +48,10 @@ next = ["failed"]
 
 [successful]
 owner = "tedge"
-# script = "operations/commands/firmware.sh successful"
+script = "operations/commands/firmware.sh successful"
 next = []
 
 [failed]
 owner = "tedge"
-# script = "operations/commands/firmware.sh failed"
+script = "operations/commands/firmware.sh failed"
 next = []
