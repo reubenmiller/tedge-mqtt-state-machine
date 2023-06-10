@@ -1,0 +1,9 @@
+version: '3'
+services:
+  tedge:
+    build:
+      dockerfile: ./integration/images/Dockerfile
+      context: ../
+    stop_grace_period: 1s
+    privileged: true
+    restart: always

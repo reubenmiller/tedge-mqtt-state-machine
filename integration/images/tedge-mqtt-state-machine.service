@@ -1,0 +1,14 @@
+[Unit]
+Description=thin-edge.io mqtt state machine
+
+[Service]
+User=root
+WorkingDirectory=/etc/tedge-mqtt-state-machine
+ExecStart=/usr/bin/tedge-mqtt-state-machine
+Restart=always
+RestartSec=30
+Environment=RUST_LOG=debug
+EnvironmentFile=-/etc/tedge-mqtt-state-machine/env
+
+[Install]
+WantedBy=multi-user.target
