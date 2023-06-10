@@ -109,6 +109,9 @@ impl OperationsActor {
         operation_state: OperationPluginMessage,
     ) -> Result<(), ChannelError> {
         match self.get_workflow_state(&topic, &operation_state.status) {
+            OperationAction::Done => {
+                info!("Reached final state");
+            }
             OperationAction::Unknown => {
                 error!("Ignore operation event {}: unknown, name={}", topic.name, &operation_state.status);
             }
@@ -138,6 +141,9 @@ impl OperationsActor {
     }
 
     fn get_workflow_state(&self, topic: &Topic, status: &str) -> OperationAction {
+        if status == "" {
+            return OperationAction::Done;
+        }
         for (filter, workflow, maybe_sender) in self.workflows.iter() {
             if filter.accept_topic(topic) {
                 let maybe_state = workflow.states.get(status);
@@ -160,6 +166,7 @@ impl OperationsActor {
 
 pub enum OperationAction {
     Unknown,
+    Done,
     External(String),
     Internal(DynSender<OperationPluginMessage>),
     Script(String),
