@@ -3,6 +3,7 @@ pub mod operations_sm;
 
 use crate::configuration::builder::ConfigManagerBuilder;
 use crate::operations_sm::builder::OperationsActorBuilder;
+use log::info;
 use tedge_actors::ServerActorBuilder;
 use tedge_actors::{Concurrent, Runtime};
 use tedge_mqtt_ext::{MqttActorBuilder, MqttConfig};
@@ -25,6 +26,7 @@ async fn main() -> Result<(), anyhow::Error> {
         if let Ok(entry) = entry {
             if entry.path().to_str().unwrap().ends_with(".toml") {
                 let workflow = toml::from_str(std::str::from_utf8(&std::fs::read(entry.path())?)?)?;
+                info!("Registering workflow. file={}", entry.path().display());
                 operations_actor.register_custom_workflow(workflow);
             }
         }
