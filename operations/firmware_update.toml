@@ -1,0 +1,56 @@
+operation = "firmware"
+request = "update"
+
+[init]
+owner = "external"
+next = ["scheduled"]
+
+[scheduled]
+owner = "tedge"
+script = "operations/commands/firmware.sh scheduled"
+next = ["downloading"]
+
+[downloading]
+owner = "tedge"
+script = "operations/commands/firmware.sh downloading"
+next = ["downloaded", "failed"]
+
+[downloaded]
+owner = "tedge"
+script = "operations/commands/firmware.sh verify"
+next = ["installing"]
+
+[installing]
+owner = "tedge"
+script = "operations/commands/firmware.sh installing"
+next = ["reboot"]
+
+[reboot]
+owner = "tedge"
+script = "operations/commands/firmware.sh reboot"
+next = ["healthcheck", "failed"]
+
+[healthcheck]
+owner = "tedge"
+script = "operations/commands/firmware.sh healthcheck"
+next = ["commit", "rollback"]
+
+[commit]
+owner = "tedge"
+script = "operations/commands/firmware.sh commit"
+next = ["successful", "failed"]
+
+[rollback]
+owner = "tedge"
+script = "operations/commands/firmware.sh rollback"
+next = ["failed"]
+
+[successful]
+owner = "tedge"
+# script = "operations/commands/firmware.sh successful"
+next = []
+
+[failed]
+owner = "tedge"
+# script = "operations/commands/firmware.sh failed"
+next = []
