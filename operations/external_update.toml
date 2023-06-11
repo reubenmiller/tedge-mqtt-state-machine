@@ -1,0 +1,26 @@
+operation = "external"
+request = "update"
+
+[init]
+owner = "tedge"
+script = "operations/commands/external.sh start"
+next = ["external_request"]
+
+[external_request]
+owner = "external"
+next = ["external_response"]
+
+[external_response]
+owner = "tedge"
+script = "operations/commands/external.sh stop"
+next = ["successful", "failed"]
+
+[successful]
+owner = "tedge"
+script = "operations/commands/external.sh successful"
+next = []
+
+[failed]
+owner = "tedge"
+script = "operations/commands/external.sh failed"
+next = []

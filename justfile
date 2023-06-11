@@ -40,6 +40,10 @@ view-state-machine:
 view-mqtt:
     cd integration && docker compose exec tedge mosquitto_sub -t 'tedge/operations/+/+/+/+'
 
+# View external updater
+view-external-updater:
+    cd integration && docker compose exec tedge journalctl -fu external-updater -n 100
+
 # Publish firmware operation which will pass
 publish-firmware-operation-successful:
     cd integration && docker compose exec tedge mosquitto_pub -t tedge/operations/main-device/firmware/update/123 -m '{"status":"init", "target":"mosquito"}'
@@ -47,3 +51,11 @@ publish-firmware-operation-successful:
 # Publish firmware operation which will fail
 publish-firmware-operation-failed:
     cd integration && docker compose exec tedge mosquitto_pub -t tedge/operations/main-device/firmware/update/123 -m '{"status":"init", "target":"mosquito", "healthy":false}'
+
+# Publish external operation which will pass
+publish-external-operation-successful:
+    cd integration && docker compose exec tedge mosquitto_pub -t tedge/operations/main-device/external/update/123 -m '{"status":"init", "target":"mosquito","children":["child01"]}'
+
+# Publish external operation which will fail
+publish-external-operation-failed:
+    cd integration && docker compose exec tedge mosquitto_pub -t tedge/operations/main-device/external/update/123 -m '{"status":"init", "target":"mosquito","children":["child01","child02"]}'

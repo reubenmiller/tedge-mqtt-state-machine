@@ -3,3 +3,6 @@ Cargo.lock
 .idea/
 tedge-mqtt-state-machine.iml
 
+# python
+*.pyc
+__pycache__/

@@ -1,0 +1,13 @@
+[Unit]
+Description=external updater
+
+[Service]
+User=root
+WorkingDirectory=/etc/ext_updater
+ExecStart=/usr/bin/python3 -m ext_updater
+Restart=always
+RestartSec=5
+EnvironmentFile=-/etc/ext_updater/env
+
+[Install]
+WantedBy=multi-user.target

@@ -27,13 +27,21 @@ RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install \
         git \
         jq \
-        curl
+        curl \
+        python3-minimal \
+        python3-paho-mqtt
 
 RUN curl https://reubenmiller.github.io/go-c8y-cli-repo/debian/PUBLIC.KEY | gpg --dearmor | tee /usr/share/keyrings/go-c8y-cli-archive-keyring.gpg >/dev/null \
     && sh -c "echo 'deb [signed-by=/usr/share/keyrings/go-c8y-cli-archive-keyring.gpg] http://reubenmiller.github.io/go-c8y-cli-repo/debian stable main' >> /etc/apt/sources.list" \
     && apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install \
         go-c8y-cli
+
+# Copy external updater example
+COPY operations/commands/ext_updater /usr/lib/python3/dist-packages/ext_updater/
+COPY integration/images/external-updater.service /lib/systemd/system/
+RUN mkdir -p /etc/ext_updater \
+    && systemctl disable external-updater
 
 COPY --from=builder /app/target/release/tedge-mqtt-state-machine /usr/bin/tedge-mqtt-state-machine
 COPY integration/images/tedge-mqtt-state-machine.service /lib/systemd/system/
