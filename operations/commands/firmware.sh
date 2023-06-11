@@ -11,7 +11,13 @@ shift
 
 CURRENT_STATE='{}'
 if [ $# -gt 0 ]; then
-    CURRENT_STATE="$1"
+    if [ -n "$1" ]; then
+        if echo "$1" | jq '.' >/dev/null 2>&1; then
+            CURRENT_STATE="$1"
+        else
+            log "Non-json input detected"
+        fi
+    fi
     shift
 fi
 
@@ -20,7 +26,7 @@ fi
 #
 next_state() {
     new_status="$1"
-    current_status=$(echo "$CURRENT_STATE" | jq -r '.status')
+    current_status=$(echo "$CURRENT_STATE" | jq -r '.status // "unknown"')
 
     EVENT_MESSAGE=$(printf '{"text":"[%s] state machine: [%s] ➜ [%s]"}' "firmware" "$current_status" "${new_status:-done}")
     mosquitto_pub -t 'tedge/events/tedge_StateMachineTransition' -m "$EVENT_MESSAGE"
@@ -29,13 +35,22 @@ next_state() {
     if [ $# -gt 1 ]; then
         OTHER_PROPS="$2"
     fi
-    c8y template execute -n --template "
-        local state = $CURRENT_STATE;
-        state +
-        {status: '$new_status'} +
-        $OTHER_PROPS +
-        {i: std.get(state, 'i', 0) + 1}
-    " -o json -c -M
+
+    # Protect against template errors as they cause a infinite loop
+    NEXT_STATE=$(
+        c8y template execute -n --template "
+            local state = $CURRENT_STATE;
+            state +
+            {status: '$new_status'} +
+            $OTHER_PROPS +
+            {i: std.get(state, 'i', 0) + 1}
+        " -o json -c -M 2>/dev/null ||:
+    )
+    if [ -z "$NEXT_STATE" ]; then
+        log "Detected state transition error. Falling back to building state without a template"
+        NEXT_STATE=$(printf '{"status":"%s"}' "$new_status")
+    fi
+    printf '%s\n' "$NEXT_STATE"
 }
 
 #
