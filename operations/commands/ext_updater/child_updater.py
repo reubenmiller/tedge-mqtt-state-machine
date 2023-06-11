@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import dataclass
+from typing import Dict, Any
 from .machine import StateMachine, State, with_transitions, Done
 from .context import Context
 
@@ -14,12 +15,26 @@ class ChildContext:
     successful: bool = False
     parent: Context = None
 
+    @property
+    def root(self):
+        return self.parent
 
-class ChildUpdater(StateMachine):
-    def run(self, context: ChildContext = None):
-        super().run()
-        context = context or ChildContext()
-        with_transitions(self, context, init_state=Prepare, delay=0.5)
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "ChildContext":
+        context = cls()
+        for k, v in d.items():
+            if hasattr(context, k):
+                setattr(context, k, v)
+
+        return context
+
+    def to_dict(self):
+        content = {}
+        for k, v in self.__dict__.items():
+            if k != "parent":
+                content[k] = v
+
+        return content
 
 
 class Prepare(State):
@@ -54,3 +69,11 @@ class Rollback(State):
 class Finalize(State):
     def run(self, context: ChildContext):
         return Done
+
+
+class ChildUpdater(StateMachine):
+    def run(self, context: ChildContext = None, init_state=None):
+        init_state = init_state or Prepare
+        super().run(context, init_state=init_state)
+        context = context or ChildContext()
+        with_transitions(self, context, init_state=Prepare, delay=1)

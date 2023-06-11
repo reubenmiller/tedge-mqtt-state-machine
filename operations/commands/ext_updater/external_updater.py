@@ -20,13 +20,13 @@ class Status(Enum):
         return str(self.value)
 
 
-class ExternalUpdater(StateMachine):
-    def run(self, context: Context):
-        super().run()
-        with_transitions(self, context, init_state=ExternalStart)
+class Prepare(State):
+    def run(self, context: Context) -> State:
+        log.info("Updating main device")
+        return UpdateChildren
 
 
-class ExternalStart(State):
+class UpdateChildren(State):
     def run(self, context: Context) -> State:
         log.info("Starting to update child devices")
 
@@ -39,13 +39,13 @@ class ExternalStart(State):
             if not child_context.successful:
                 all_children_successful = False
                 child_errors.append(child)
-        
+
         context.successful = all_children_successful
 
         if not all_children_successful:
             log.info("Rolling back version of children")
             context.reason = f"Some child devices failed to update. {child_errors}"
-            return Reboot
+            return Rollback
 
         return Finalize
 
@@ -65,12 +65,29 @@ class Reboot(State):
 class Finalize(State):
     def run(self, context: Context) -> State:
         log.info("Finished updating child devices. %s", context)
-        
+
         if context.client:
             payload = context.to_dict()
             payload["status"] = str(Status.RESPONSE)
             serial_payload = json.dumps(payload)
             log.info("Publishing message: topic=%s, payload=%s", context.topic, payload)
             if context.topic:
-                context.client.publish(context.topic, serial_payload, qos=1, retain=True)
+                context.client.publish(
+                    context.topic, serial_payload, qos=1, retain=True
+                )
         return Done
+
+
+class ExternalUpdater(StateMachine):
+    def run(self, context: Context, init_state=None):
+        init_state = init_state or Prepare
+        super().run(context, init_state)
+        with_transitions(self, context, init_state)
+
+
+STATES = {
+    Prepare.__name__.lower(): Prepare,
+    Reboot.__name__.lower(): Reboot,
+    Rollback.__name__.lower(): Rollback,
+    Finalize.__name__.lower(): Finalize,
+}

@@ -10,7 +10,7 @@ release:
 
 # Run debug
 run:
-    RUST_LOG=debug cargo run
+    RUST_LOG=info cargo run
 
 # ------------------------------------
 # Demo
@@ -38,7 +38,7 @@ view-state-machine:
 
 # View MQTT operations topic in demo
 view-mqtt:
-    cd integration && docker compose exec tedge mosquitto_sub -t 'tedge/operations/+/+/+/+'
+    cd integration && docker compose exec tedge mosquitto_sub -t 'tedge/operations/+/+/+/+' -F '%t\t%p'
 
 # View external updater
 view-external-updater:

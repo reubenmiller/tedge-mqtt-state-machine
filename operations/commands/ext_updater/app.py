@@ -4,11 +4,11 @@ import logging
 import json
 import sys
 import time
-from typing import List, Type
+from typing import List, Type, Any, Dict
 import threading
 from paho.mqtt.client import Client, MQTTMessage
 from .machine import StateMachine
-from .external_updater import ExternalUpdater, Status
+from .external_updater import ExternalUpdater, Status, STATES
 from .context import Context
 
 # Set sensible logging defaults
@@ -29,8 +29,8 @@ class App:
         client.on_connect = self.on_connect
         client.on_message = self.on_message
         self.client = client
-        self._workers: List[threading.Thread] = []
-    
+        self._workers: Dict[str, threading.Thread] = {}
+
     def stop(self, message: str):
         state = json.loads(message)
 
@@ -38,23 +38,33 @@ class App:
             state["status"] = str(Status.SUCCESSFUL)
         else:
             state["status"] = str(Status.FAILED)
-        
+
         print(json.dumps(state))
 
     def start(self, message: str):
         state = json.loads(message)
         state["status"] = str(Status.REQUEST)
         print(json.dumps(state))
-        
 
-    def run_workflow(self, machine: Type[StateMachine], context: Context):
+    def run_workflow(
+        self, machine: Type[StateMachine], context: Context, init_state: Any = None
+    ):
+        if context.id in self._workers:
+            if self._workers[context.id].is_alive():
+                log.info("Workflow has already been registered. %s", context.id)
+                return
+
+            del self._workers[context.id]
+
         log.info("Queuing state machine. %s", machine.__name__)
-        worker = threading.Thread(target=machine().run, args=(context,), daemon=True)
+        worker = threading.Thread(
+            target=machine().run, args=(context, init_state), daemon=True
+        )
         worker.start()
-        self._workers.append(worker)
+        self._workers[context.id] = worker
 
     def wait_all_workflows(self, timeout: float = None):
-        for t in self._workers:
+        for t in self._workers.values():
             t.join(timeout)
 
     def on_connect(self, client, userdata, flags, rc):
@@ -79,7 +89,12 @@ class App:
     def on_message(self, client, userdata, msg: MQTTMessage):
         try:
             payload = json.loads(msg.payload.decode("utf8"))
-            log.info("Received message: topic=%s, payload=%s", msg.topic, payload)
+            log.info(
+                "Received message: topic=%s, payload=%s, mid=%s",
+                msg.topic,
+                payload,
+                msg.mid,
+            )
         except Exception as ex:
             log.error("Unknown message format. %s", ex)
             return
@@ -87,13 +102,13 @@ class App:
         topic_parts = msg.topic.split("/")
         message_id = topic_parts[-1]
         message_type = "/".join([topic_parts[3], topic_parts[4]])
-        log.info("Detected message type: %s", message_type)
+        log.debug("Detected message type: %s", message_type)
 
         machine = None
         context = None
         if message_type == "external/update":
-
             status = payload.get("status", "")
+            init_state = None
 
             # Only start workflow on trigger status
             if status == str(Status.REQUEST):
@@ -101,10 +116,29 @@ class App:
                 context = Context(id=message_id, client=self.client, topic=msg.topic)
                 context.children = payload.get("children", [])
             else:
-                log.info("Ignoring %s workflow status. %s", message_type, status)
+                # TODO: Simplify the revival of the context and current state machine
+                if status and status in STATES:
+                    if message_id not in self._workers:
+                        log.info("Reviving state")
+                        machine = ExternalUpdater
+                        init_state = getattr(STATES, status, None)
+                        context = Context.from_dict(payload)
+                        context.client = self.client
+                        context.topic = msg.topic
+                        context.id = message_id
+                    else:
+                        log.debug(
+                            "Workflow has already been registered. id=%s, type=%s, status=%s",
+                            message_id,
+                            message_type,
+                            status,
+                        )
 
         if machine is not None:
-            self.run_workflow(machine, context)
+            self.run_workflow(machine, context, init_state)
+
+    def revive_machines(self, states):
+        pass
 
     def connect(self):
         self.client.loop_start()
