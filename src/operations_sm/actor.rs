@@ -127,7 +127,7 @@ impl OperationsActor {
             }
             OperationAction::Script(script) => {
                 info!("Process operation event {}: using {script}", topic.name);
-                if let Ok(command) = Execute::try_new(format!("{} \"{:?}\"", &script, &operation_state.json.to_string()).as_str()) {
+                if let Ok(command) = Execute::try_new(format!("{} {:?}", &script, &operation_state.json.to_string()).as_str()) {
                     let output = self.script_runner.await_response(command).await?;
                     let new_state = operation_state.update_with_script_output(script, output);
                     self.publish_operation_plugin_event(new_state).await?;
